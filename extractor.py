@@ -1,16 +1,22 @@
+"""Extrai informações específicas de lotação de arquivos PDF.
+
+O script abre um PDF selecionado pelo usuário, busca padrões de lotação
+determinados e grava as ocorrências em um arquivo de texto na pasta de
+downloads. Em seguida, o arquivo de saída é aberto com o editor padrão do
+sistema."""
+
 import fitz  # PyMuPDF
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import re
 import os
-from datetime import datetime
 import subprocess
-import shutil
+import sys
 
 def extrair_informacoes_especificas(pdf_path, output_dir):
     # Abre o PDF
     documento = fitz.open(pdf_path)
-    
+
     informacoes_encontradas = []
 
     # Padrões regex para encontrar as informações de lotação específicas
@@ -29,7 +35,7 @@ def extrair_informacoes_especificas(pdf_path, output_dir):
         texto = pagina.get_text("text")  # Extrai texto em modo de linha
         linhas = texto.splitlines()  # Divide o texto em linhas
 
-        for idx, linha in enumerate(linhas):
+        for linha in linhas:
             # Verifica se a linha atual contém a lotação desejada
             if re.search(padrao_lotacao_seduc, linha, re.IGNORECASE) or re.search(padrao_lotacao_cre, linha, re.IGNORECASE):
                 # Extrai informações das linhas anteriores, se disponíveis
@@ -55,7 +61,7 @@ def extrair_informacoes_especificas(pdf_path, output_dir):
 
                 # Limpa o buffer após encontrar a lotação desejada
                 buffer_linhas = []
-            
+
             else:
                 # Adiciona a linha atual ao buffer
                 buffer_linhas.append(linha)
@@ -75,7 +81,7 @@ def extrair_informacoes_especificas(pdf_path, output_dir):
             f.write(f"ID FUNCIONAL: {info['id']}\n")
             f.write(f"PÁGINA: {info['pagina']}\n")
             f.write("\n")
-    
+
     print(f"Extração concluída. Informações salvas em '{output_path}'")
     documento.close()
 
@@ -95,20 +101,31 @@ def selecionar_output_dir():
     output_dir = os.path.expanduser("~/Downloads")
     return output_dir
 
-# Seleciona o arquivo PDF para extração de informações
-pdf_path = selecionar_pdf()
-
-if pdf_path:
-    # Seleciona o diretório de saída (downloads)
-    output_dir = selecionar_output_dir()
-
-    # Chama a função de extração
-    output_file = extrair_informacoes_especificas(pdf_path, output_dir)
-
-    # Abre o arquivo de texto após salvar
-    if output_file:
-        subprocess.Popen(["notepad.exe", output_file])
+def abrir_arquivo_saida(caminho):
+    """Abre o arquivo de saída no editor de texto padrão."""
+    if os.name == "nt":
+        os.startfile(caminho)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", caminho])
     else:
-        messagebox.showerror("Erro", "Falha ao salvar o arquivo de texto.")
-else:
-    print("Operação cancelada: Arquivo PDF não selecionado.")
+        subprocess.Popen(["xdg-open", caminho])
+
+def main():
+    """Executa a extração e abre o arquivo de saída."""
+    pdf_path = selecionar_pdf()
+
+    if pdf_path:
+        output_dir = selecionar_output_dir()
+
+        output_file = extrair_informacoes_especificas(pdf_path, output_dir)
+
+        if output_file:
+            abrir_arquivo_saida(output_file)
+        else:
+            messagebox.showerror("Erro", "Falha ao salvar o arquivo de texto.")
+    else:
+        print("Operação cancelada: Arquivo PDF não selecionado.")
+
+
+if __name__ == "__main__":
+    main()
